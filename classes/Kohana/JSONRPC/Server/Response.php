@@ -50,12 +50,12 @@ class Kohana_JSONRPC_Server_Response {
             $error->code = $this->_error->getCode();
             $error->message = (string) $this->_error->getMessage();
 
-            $additional_data = $this->get_additional_error_data();
-
-            if ( $additional_data )
-            {
-                $error->data = $additional_data;
-            }
+//            $additional_data = $this->get_additional_error_data();
+//
+//            if ( $additional_data )
+//            {
+//                $error->data = $additional_data;
+//            }
 
             $response->error = $error;
         }
@@ -76,11 +76,15 @@ class Kohana_JSONRPC_Server_Response {
     {
         $data = array();
 
-        $exception = $this->_error->get_original_exception();
+        $e = $this->_error->getPrevious();
 
-        if ( $exception )
+        if ( $e )
         {
-            $data['exception'] = $exception;
+            $data['exception']  = array(
+                'message'       =>  '['.$e->getCode().']'.$e->getMessage(),
+                'file'          =>  $e->getFile().' at '.$e->getLine(),
+                'trace'         =>  $e->getTrace(),
+            ); //$exception;
         }
 
         return $data;

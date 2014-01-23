@@ -50,34 +50,20 @@ abstract class Kohana_JSONRPC_Server {
             // Parse and validate request
             $request->parse($body);
 
-            // If this is a batch
-            if ( $request->is_batch() )
-            {
-                $batch_results = array();
-
-                // Process each request
-                foreach ( $request as $sub_request )
-                {
-                    $batch_results[] = $this->process_request($sub_request);
-                }
-
-                $response = '['. implode(',', array_filter($batch_results)) .']';
-            }
-            // Else process one
-            else
-            {
-                $response = $this->process_request($request);
-            }
+            $response = $request->is_batch()
+                ? $this->process_batch($request)
+                : $this->process_request($request);
         }
         catch ( Exception $e )
         {
             if ( ! ($e instanceof JSONRPC_Exception) )
             {
+                // Process default exception handling (logging, notifications, etc)
+                Kohana_Exception::_handler($e);
+
                 // Wrap unknown exception into InternalError
                 $e = new JSONRPC_Exception_InternalError($e);
             }
-
-//            throw $e;
 
             // Process default exception handling (logging, notifications, etc)
             Kohana_Exception::_handler($e);
@@ -89,6 +75,19 @@ abstract class Kohana_JSONRPC_Server {
 
         // Send response
         $this->send_response($response);
+    }
+
+    protected function process_batch($batch_request)
+    {
+        $batch_results = array();
+
+        // Process each request
+        foreach ( $batch_request as $sub_request )
+        {
+            $batch_results[] = $this->process_request($sub_request);
+        }
+
+        return '['. implode(',', array_filter($batch_results)) .']';
     }
 
     /**

@@ -16,21 +16,21 @@ class Kohana_JSONRPC_Exception extends Kohana_Exception {
         self::INTERNAL_ERROR    => 'Internal error',
     );
 
-    protected $_original_exception;
+//    protected $_original_exception;
 
     public function __construct(Exception $original_exception = NULL)
     {
         $code = $this->code;
         $message = $this->_messages[$code];
 
-        $this->_original_exception = $original_exception;
+//        $this->_original_exception = $original_exception;
 
-        parent::__construct($message, $variables = NULL, $code);
+        parent::__construct($message, $variables = NULL, $code, $original_exception);
     }
 
-    public function get_original_exception()
-    {
-        return $this->_original_exception;
-    }
+//    public function get_original_exception()
+//    {
+//        return $this->_original_exception;
+//    }
 
 }
