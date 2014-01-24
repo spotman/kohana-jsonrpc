@@ -67,13 +67,17 @@ class Kohana_JSONRPC_Server_Request implements IteratorAggregate {
         }
     }
 
-    protected function parse_request($request_data)
+    protected function parse_request($raw_data)
     {
-        $this->_id = isset($request_data->id) ? (int) $request_data->id : NULL;
+        // Check protocol version
+        if ( ! isset($raw_data->jsonrpc) OR $raw_data->jsonrpc != '2.0' )
+            throw new JSONRPC_Exception_InvalidRequest;
 
-        $this->_params = isset($request_data->params) ? (array) $request_data->params : NULL;
+        $this->_id = isset($raw_data->id) ? (int) $raw_data->id : NULL;
 
-        $raw_method = isset($request_data->method) ? (string) $request_data->method : NULL;
+        $this->_params = isset($raw_data->params) ? (array) $raw_data->params : NULL;
+
+        $raw_method = isset($raw_data->method) ? (string) $raw_data->method : NULL;
 
         if ( ! $raw_method )
             throw new JSONRPC_Exception_InvalidRequest;
