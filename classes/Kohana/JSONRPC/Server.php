@@ -56,6 +56,8 @@ abstract class Kohana_JSONRPC_Server {
         }
         catch ( Exception $e )
         {
+            throw $e;
+
             if ( ! ($e instanceof JSONRPC_Exception) )
             {
                 // Process default exception handling (logging, notifications, etc)
@@ -131,6 +133,9 @@ abstract class Kohana_JSONRPC_Server {
 
     protected function prepare_params($proxy_object, $method_name, array $args)
     {
+        if ( ! $args )
+            return $args;
+
         // Thru indexed params
         if ( is_int(key($args)) )
             return $args;
