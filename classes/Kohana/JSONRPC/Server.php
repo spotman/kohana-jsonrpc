@@ -56,19 +56,14 @@ abstract class Kohana_JSONRPC_Server {
         }
         catch ( Exception $e )
         {
-            throw $e;
+            // Process default exception handling (logging, notifications, etc)
+            Kohana_Exception::_handler($e);
 
             if ( ! ($e instanceof JSONRPC_Exception) )
             {
-                // Process default exception handling (logging, notifications, etc)
-                Kohana_Exception::_handler($e);
-
                 // Wrap unknown exception into InternalError
                 $e = new JSONRPC_Exception_InternalError($e);
             }
-
-            // Process default exception handling (logging, notifications, etc)
-            Kohana_Exception::_handler($e);
 
             $response = JSONRPC_Server_Response::factory()
                 ->failed($e)
