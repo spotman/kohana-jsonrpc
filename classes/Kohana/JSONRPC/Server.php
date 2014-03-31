@@ -56,6 +56,9 @@ abstract class Kohana_JSONRPC_Server {
         }
         catch ( Exception $e )
         {
+            if ( ! Kohana::in_production() )
+                throw $e;
+
             // Process default exception handling (logging, notifications, etc)
             Kohana_Exception::_handler($e);
 
