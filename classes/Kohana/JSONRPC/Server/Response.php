@@ -40,6 +40,7 @@ class Kohana_JSONRPC_Server_Response {
     public function body()
     {
         $response = new stdClass;
+        $response->jsonrpc = "2.0";
         $response->id = $this->_id;
 
         // There is a error
