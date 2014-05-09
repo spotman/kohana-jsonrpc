@@ -65,7 +65,7 @@ abstract class Kohana_JSONRPC_Server {
             if ( ! ($e instanceof JSONRPC_Exception) )
             {
                 // Wrap unknown exception into InternalError
-                $e = new JSONRPC_Exception_InternalError($e);
+                $e = new JSONRPC_Exception_InternalError(NULL, NULL, $e);
             }
 
             $response = JSONRPC_Server_Response::factory()

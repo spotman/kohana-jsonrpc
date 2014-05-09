@@ -73,22 +73,22 @@ class Kohana_JSONRPC_Server_Response {
         return json_encode($response);
     }
 
-    protected function get_additional_error_data()
-    {
-        $data = array();
-
-        $e = $this->_error->getPrevious();
-
-        if ( $e )
-        {
-            $data['exception']  = array(
-                'message'       =>  '['.$e->getCode().']'.$e->getMessage(),
-                'file'          =>  $e->getFile().' at '.$e->getLine(),
-                'trace'         =>  $e->getTrace(),
-            ); //$exception;
-        }
-
-        return $data;
-    }
+//    protected function get_additional_error_data()
+//    {
+//        $data = array();
+//
+//        $e = $this->_error->getPrevious();
+//
+//        if ( $e )
+//        {
+//            $data['exception']  = array(
+//                'message'       =>  '['.$e->getCode().']'.$e->getMessage(),
+//                'file'          =>  $e->getFile().' at '.$e->getLine(),
+//                'trace'         =>  $e->getTrace(),
+//            ); //$exception;
+//        }
+//
+//        return $data;
+//    }
 
 }
