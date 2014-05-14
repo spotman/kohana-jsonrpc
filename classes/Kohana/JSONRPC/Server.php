@@ -56,11 +56,7 @@ abstract class Kohana_JSONRPC_Server {
         }
         catch ( Exception $e )
         {
-            if ( ! Kohana::in_production() )
-                throw $e;
-
-            // Process default exception handling (logging, notifications, etc)
-            Kohana_Exception::_handler($e);
+            $this->process_exception($e);
 
             if ( ! ($e instanceof JSONRPC_Exception) )
             {
@@ -75,6 +71,15 @@ abstract class Kohana_JSONRPC_Server {
 
         // Send response
         $this->send_response($response);
+    }
+
+    protected function process_exception(Exception $e)
+    {
+        if ( ! Kohana::in_production() )
+            throw $e;
+
+        // Process default exception handling (logging, notifications, etc)
+        Kohana_Exception::_handler($e);
     }
 
     protected function process_batch($batch_request)
