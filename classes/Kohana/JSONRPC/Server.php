@@ -56,12 +56,17 @@ abstract class Kohana_JSONRPC_Server {
         }
         catch ( Exception $e )
         {
-            $this->process_exception($e);
+            $message = $this->process_exception($e);
 
-            if ( ! ($e instanceof JSONRPC_Exception) )
+            // Common HTTP exception (transfers HTTP code to response)
+            if ( $e instanceof HTTP_Exception )
+            {
+                $e = new JSONRPC_Exception_HTTP($message, $e);
+            }
+            else if ( ! ($e instanceof JSONRPC_Exception) )
             {
                 // Wrap unknown exception into InternalError
-                $e = new JSONRPC_Exception_InternalError(NULL, NULL, $e);
+                $e = new JSONRPC_Exception_InternalError($message, NULL, $e);
             }
 
             $response = JSONRPC_Server_Response::factory()
@@ -73,13 +78,19 @@ abstract class Kohana_JSONRPC_Server {
         $this->send_response($response);
     }
 
+    /**
+     * Process exception logging, notifications, etc
+     *
+     * @param Exception $e
+     * @return string Exception message
+     */
     protected function process_exception(Exception $e)
     {
-        if ( ! Kohana::in_production() )
-            throw $e;
+        Kohana_Exception::log($e);
 
-        // Process default exception handling (logging, notifications, etc)
-        Kohana_Exception::_handler($e);
+        return Kohana::in_production()
+            ? NULL
+            : $e->getMessage();
     }
 
     protected function process_batch($batch_request)
