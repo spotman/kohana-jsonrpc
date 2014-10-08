@@ -88,10 +88,10 @@ abstract class Kohana_JSONRPC_Server {
      */
     protected function process_exception(Exception $e)
     {
-        if ( Kohana::$environment === Kohana::DEVELOPMENT AND ! ( $e instanceof HTTP_Exception ) )
+        if ( ! Kohana::in_production() AND ! ( $e instanceof HTTP_Exception ) )
             throw $e;
 
-        Kohana_Exception::_handler($e);
+        Kohana_Exception::log($e);
     }
 
     /**
