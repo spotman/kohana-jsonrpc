@@ -88,7 +88,9 @@ abstract class Kohana_JSONRPC_Server {
      */
     protected function process_exception(Exception $e)
     {
-        if ( ! Kohana::in_production() AND ! ( $e instanceof HTTP_Exception ) )
+        $in_production = in_array(Kohana::$environment, array(Kohana::PRODUCTION, Kohana::STAGING));
+
+        if ( ! $in_production AND ! ( $e instanceof HTTP_Exception ) )
             throw $e;
 
         Kohana_Exception::log($e);
