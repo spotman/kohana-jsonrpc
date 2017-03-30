@@ -1,7 +1,10 @@
 <?php defined('SYSPATH') OR die('No direct script access.');
 
-abstract class Kohana_JSONRPC_Server {
-
+abstract class Kohana_JSONRPC_Server
+{
+    /**
+     * @var callable
+     */
     protected $_proxy_factory_callback;
 
     /**
@@ -14,26 +17,24 @@ abstract class Kohana_JSONRPC_Server {
         return new static($response);
     }
 
-    function __construct(Response $response)
+    public function __construct(Response $response)
     {
         $this->_response = $response;
 
         $this->register_proxy_factory(array($this, 'default_proxy_factory'));
     }
 
-    public function register_proxy_factory($callback)
+    public function register_proxy_factory(callable $callback)
     {
-        if ( ! is_callable($callback) )
-            throw new JSONRPC_Exception('Callback must be callable');
-
         $this->_proxy_factory_callback = $callback;
         return $this;
     }
 
     public function default_proxy_factory($class_name)
     {
-        if ( ! class_exists($class_name) )
+        if (!class_exists($class_name)) {
             throw new JSONRPC_Exception_MethodNotFound;
+        }
 
         return new $class_name;
     }
@@ -54,7 +55,7 @@ abstract class Kohana_JSONRPC_Server {
                 ? $this->process_batch($request)
                 : $this->process_request($request);
         }
-        catch ( Exception $e )
+        catch ( \Exception $e )
         {
             $this->process_exception($e);
             $message = $this->get_exception_message($e);
@@ -90,8 +91,9 @@ abstract class Kohana_JSONRPC_Server {
     {
         $in_production = in_array(Kohana::$environment, array(Kohana::PRODUCTION, Kohana::STAGING));
 
-        if ( ! $in_production AND ! ( $e instanceof HTTP_Exception ) )
+        if ( ! $in_production AND ! ( $e instanceof HTTP_Exception ) ) {
             throw $e;
+        }
 
         Kohana_Exception::log($e);
     }
@@ -108,7 +110,7 @@ abstract class Kohana_JSONRPC_Server {
             : 'Internal error';
     }
 
-    protected function process_batch($batch_request)
+    protected function process_batch(JSONRPC_Server_Request $batch_request)
     {
         $batch_results = array();
 

@@ -36,11 +36,12 @@ class Kohana_JSONRPC_Client {
 
         $status = $this->_last_response->status();
 
-        if ( $status !== 200 )
+        if ( $status !== 200 ) {
             throw new JSONRPC_Exception(
                 'Response with :status status from :url -> :method',
                 array(':status' => $status, ':url' => $url, ':method' => $method)
             );
+        }
 
         $data = json_decode($this->_last_response->body(), TRUE);
 
