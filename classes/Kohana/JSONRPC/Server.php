@@ -5,29 +5,30 @@ abstract class Kohana_JSONRPC_Server
     /**
      * @var callable
      */
-    protected $_proxy_factory_callback;
+    protected $proxy_factory_callable;
 
     /**
      * @var Response
      */
     protected $_response;
 
-    public static function factory(Response $response)
-    {
-        return new static($response);
-    }
-
     public function __construct(Response $response)
     {
         $this->_response = $response;
 
-        $this->register_proxy_factory(array($this, 'default_proxy_factory'));
+        $this->register_proxy_factory([$this, 'default_proxy_factory']);
     }
 
-    public function register_proxy_factory(callable $callback)
+    public function register_proxy_factory(callable $factory)
     {
-        $this->_proxy_factory_callback = $callback;
+        $this->proxy_factory_callable = $factory;
+
         return $this;
+    }
+
+    public static function factory(Response $response)
+    {
+        return new static($response);
     }
 
     public function default_proxy_factory($class_name)
@@ -39,36 +40,44 @@ abstract class Kohana_JSONRPC_Server
         return new $class_name;
     }
 
-    public function process($body = NULL)
+    public function process($body = null)
     {
-        $response = NULL;
+        $response      = null;
+        $last_modified = null;
 
-        try
-        {
+        try {
             // Get request
             $request = JSONRPC_Server_Request::factory();
 
             // Parse and validate request
             $request->parse($body);
 
-            $response = $request->is_batch()
-                ? $this->process_batch($request)
-                : $this->process_request($request);
-        }
-        catch ( \Exception $e )
-        {
+            if ($request->is_batch()) {
+                $batch_data    = $this->process_batch($request);
+                $batch_results = [];
+
+                // Update last modified for each item
+                foreach ($batch_data as $item) {
+                    $last_modified   = $this->update_last_modified($last_modified, $item->get_last_modified());
+                    $batch_results[] = $item->body();
+                }
+
+                $response = '[' . implode(',', array_filter($batch_results)) . ']';
+            } else {
+                $data          = $this->process_request($request);
+                $last_modified = $this->update_last_modified($last_modified, $data->get_last_modified());
+                $response      = $data->body();
+            }
+        } catch (\Exception $e) {
             $this->process_exception($e);
             $message = $this->get_exception_message($e);
 
             // Common HTTP exception (transfers HTTP code to response)
-            if ( $e instanceof HTTP_Exception )
-            {
+            if ($e instanceof HTTP_Exception) {
                 $e = new JSONRPC_Exception_HTTP($message, $e);
-            }
-            else if ( ! ($e instanceof JSONRPC_Exception) )
-            {
+            } elseif (!($e instanceof JSONRPC_Exception)) {
                 // Wrap unknown exception into InternalError
-                $e = new JSONRPC_Exception_InternalError($message, NULL, $e);
+                $e = new JSONRPC_Exception_InternalError($message, null, $e);
             }
 
             $response = JSONRPC_Server_Response::factory()
@@ -77,21 +86,118 @@ abstract class Kohana_JSONRPC_Server
         }
 
         // Send response
-        $this->send_response($response);
+        $this->send_response($response, $last_modified);
+    }
+
+    /**
+     * @param \JSONRPC_Server_Request $batch_request
+     *
+     * @return \JSONRPC_Server_Response[]
+     */
+    protected function process_batch(JSONRPC_Server_Request $batch_request)
+    {
+        $batch_results = [];
+
+        // Process each request
+        foreach ($batch_request as $sub_request) {
+            $batch_results[] = $this->process_request($sub_request);
+        }
+
+        return array_filter($batch_results);
+    }
+
+    /**
+     * @param JSONRPC_Server_Request $request
+     *
+     * @return \JSONRPC_Server_Response
+     */
+    protected function process_request(JSONRPC_Server_Request $request)
+    {
+        // Get class/method names
+        $class_name  = $request->class_name();
+        $method_name = $request->method_name();
+
+        // Factory proxy object
+        $proxy_object = $this->proxy_factory($class_name);
+
+        $params = $this->prepare_params($proxy_object, $method_name, $request->params() ?: []);
+
+        // Call proxy object method
+        $result        = call_user_func_array([$proxy_object, $method_name], $params);
+        $last_modified = null;
+
+        if (is_object($result) && $result instanceof JSONRPC_ModelResponseInterface) {
+            $last_modified = $result->getJsonRpcResponseLastModified();
+            $result        = $result->getJsonRpcResponseData();
+        }
+
+        if (!$last_modified) {
+            $last_modified = new DateTime;
+        }
+
+        // Make response
+        return JSONRPC_Server_Response::factory()
+            ->id($request->id())
+            ->succeeded($result)
+            ->set_last_modified($last_modified);
+    }
+
+    protected function proxy_factory($class_name)
+    {
+        return call_user_func($this->proxy_factory_callable, $class_name);
+    }
+
+    protected function prepare_params($proxy_object, $method_name, array $args)
+    {
+        if (!$args) {
+            return $args;
+        }
+
+        // Thru indexed params
+        if (is_int(key($args))) {
+            return $args;
+        }
+
+        $reflection = new ReflectionMethod($proxy_object, $method_name);
+
+        $params = [];
+
+        foreach ($reflection->getParameters() as $param) {
+            /* @var $param ReflectionParameter */
+            if (isset($args[$param->getName()])) {
+                $params[] = $args[$param->getName()];
+            } elseif ($param->isDefaultValueAvailable()) {
+                $params[] = $param->getDefaultValue();
+            } else {
+                throw new JSONRPC_Exception_InvalidParams;
+            }
+        }
+
+        return $params;
+    }
+
+    protected function update_last_modified(DateTime $currentTime = null, DateTime $updatedTime = null)
+    {
+        if (!$currentTime || ($updatedTime && $updatedTime > $currentTime)) {
+            $currentTime = $updatedTime;
+        }
+
+        return $currentTime;
     }
 
     /**
      * Process exception logging, notifications, etc
      *
      * @param Exception $e
-     * @return string Exception message
+     *
+     * @return void
      * @throws Exception
      */
     protected function process_exception(Exception $e)
     {
-        $in_production = in_array(Kohana::$environment, array(Kohana::PRODUCTION, Kohana::STAGING));
+        $in_production = in_array(Kohana::$environment, [Kohana::PRODUCTION, Kohana::STAGING], true);
 
-        if ( ! $in_production AND ! ( $e instanceof HTTP_Exception ) ) {
+        if (!$in_production && !($e instanceof HTTP_Exception)) {
             throw $e;
         }
 
@@ -100,6 +206,7 @@ abstract class Kohana_JSONRPC_Server
 
     /**
      * @param Exception $e
+     *
      * @return string
      */
     protected function get_exception_message(Exception $e)
@@ -110,99 +217,17 @@ abstract class Kohana_JSONRPC_Server
             : 'Internal error';
     }
 
-    protected function process_batch(JSONRPC_Server_Request $batch_request)
+    protected function send_response($response, DateTime $last_modified = null)
     {
-        $batch_results = array();
-
-        // Process each request
-        foreach ( $batch_request as $sub_request )
-        {
-            $batch_results[] = $this->process_request($sub_request);
+        if (!$last_modified) {
+            $last_modified = new DateTime;
         }
 
-        return '['. implode(',', array_filter($batch_results)) .']';
-    }
+        $value = gmdate("D, d M Y H:i:s \G\M\T", $last_modified->getTimestamp());
 
-    /**
-     * @param JSONRPC_Server_Request $request
-     * @return string
-     */
-    protected function process_request(JSONRPC_Server_Request $request)
-    {
-        // Get class/method names
-        $class_name = $request->class_name();
-        $method_name = $request->method_name();
-
-        // Factory proxy object
-        $proxy_object = $this->proxy_factory($class_name);
-
-        $params = $this->prepare_params($proxy_object, $method_name, $request->params() ?: array());
-
-        // Call proxy object method
-        $result = call_user_func_array(array($proxy_object, $method_name), $params);
-
-        $result = $this->process_result($result);
-
-        // Make response
-        return JSONRPC_Server_Response::factory()
-            ->id($request->id())
-            ->succeeded($result)
-            ->body();
-    }
-
-    /**
-     * Override this if you need to post-process proxy method result data
-     *
-     * @param $result
-     * @return mixed
-     */
-    protected function process_result($result)
-    {
-        // Nothing by default
-        return $result;
-    }
-
-    protected function prepare_params($proxy_object, $method_name, array $args)
-    {
-        if ( ! $args )
-            return $args;
-
-        // Thru indexed params
-        if ( is_int(key($args)) )
-            return $args;
-
-        $reflection = new ReflectionMethod($proxy_object, $method_name);
-
-        $params = array();
-
-        foreach ( $reflection->getParameters() as $param )
-        {
-            /* @var $param ReflectionParameter */
-            if ( isset($args[$param->getName()]) )
-            {
-                $params[] = $args[$param->getName()];
-            }
-            else if ( $param->isDefaultValueAvailable() )
-            {
-                $params[] = $param->getDefaultValue();
-            }
-            else
-                throw new JSONRPC_Exception_InvalidParams;
-        }
-
-        return $params;
-    }
-
-    protected function proxy_factory($class_name)
-    {
-        return call_user_func($this->_proxy_factory_callback, $class_name);
-    }
-
-    protected function send_response($response)
-    {
         $this->_response
             ->headers('content-type', 'application/json')
+            ->headers('last-modified', $value)
             ->body($response);
     }
-
 }
