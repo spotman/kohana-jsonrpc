@@ -8,6 +8,11 @@ abstract class Kohana_JSONRPC_Server
     protected $proxy_factory_callable;
 
     /**
+     * @var string[]
+     */
+    protected $access_violation_exceptions;
+
+    /**
      * @var Response
      */
     protected $_response;
@@ -23,6 +28,12 @@ abstract class Kohana_JSONRPC_Server
     {
         $this->proxy_factory_callable = $factory;
 
+        return $this;
+    }
+
+    public function add_access_violation_exception($class_name)
+    {
+        $this->access_violation_exceptions[] = $class_name;
         return $this;
     }
 
@@ -70,10 +81,16 @@ abstract class Kohana_JSONRPC_Server
             }
         } catch (\Exception $e) {
             $this->process_exception($e);
+
+            if ($this->is_access_violation_exception($e)) {
+                // Access violation, throw 403
+                $e = new HTTP_Exception_403('Access denied', [], $e);
+            }
+
             $message = $this->get_exception_message($e);
 
-            // Common HTTP exception (transfers HTTP code to response)
             if ($e instanceof HTTP_Exception) {
+                // Common HTTP exception (transfers HTTP code to response)
                 $e = new JSONRPC_Exception_HTTP($message, $e);
             } elseif (!($e instanceof JSONRPC_Exception)) {
                 // Wrap unknown exception into InternalError
@@ -87,6 +104,17 @@ abstract class Kohana_JSONRPC_Server
 
         // Send response
         $this->send_response($response, $last_modified);
+    }
+
+    protected function is_access_violation_exception($e)
+    {
+        foreach ($this->access_violation_exceptions as $violation_exception) {
+            if ($e instanceof $violation_exception) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -195,11 +223,11 @@ abstract class Kohana_JSONRPC_Server
      */
     protected function process_exception(Exception $e)
     {
-        $in_production = in_array(Kohana::$environment, [Kohana::PRODUCTION, Kohana::STAGING], true);
+//        $in_production = in_array(Kohana::$environment, [Kohana::PRODUCTION, Kohana::STAGING], true);
 
-        if (!$in_production && !($e instanceof HTTP_Exception)) {
-            throw $e;
-        }
+//        if (!$in_production && !($e instanceof HTTP_Exception)) {
+//            throw $e;
+//        }
 
         Kohana_Exception::log($e);
     }
