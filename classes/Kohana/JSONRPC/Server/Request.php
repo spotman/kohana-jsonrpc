@@ -58,7 +58,7 @@ class Kohana_JSONRPC_Server_Request implements IteratorAggregate {
         {
             foreach ( $this->_body as $sub_request_data )
             {
-                $this->_batch_sub_requests[] = $this->factory()->parse_request($sub_request_data);
+                $this->_batch_sub_requests[] = static::factory()->parse_request($sub_request_data);
             }
         }
         else
@@ -70,7 +70,7 @@ class Kohana_JSONRPC_Server_Request implements IteratorAggregate {
     protected function parse_request($raw_data)
     {
         // Check protocol version
-        if ( ! isset($raw_data->jsonrpc) OR $raw_data->jsonrpc != '2.0' )
+        if ( ! isset($raw_data->jsonrpc) || $raw_data->jsonrpc !== '2.0' )
             throw new JSONRPC_Exception_InvalidRequest;
 
         $this->_id = isset($raw_data->id) ? (int) $raw_data->id : NULL;
@@ -84,13 +84,13 @@ class Kohana_JSONRPC_Server_Request implements IteratorAggregate {
 
         $raw_method_array = explode('.', $raw_method);
 
-        if ( count($raw_method_array) != 2 )
+        if ( count($raw_method_array) !== 2 )
             throw new JSONRPC_Exception_InvalidRequest;
 
         $this->_class_name = $raw_method_array[0];
         $this->_method_name = $raw_method_array[1];
 
-        if ( ! $this->_class_name OR ! $this->_method_name )
+        if ( !$this->_class_name || !$this->_method_name )
             throw new JSONRPC_Exception_InvalidRequest;
 
         return $this;
