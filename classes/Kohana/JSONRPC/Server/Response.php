@@ -10,7 +10,7 @@ class Kohana_JSONRPC_Server_Response
     protected $_result;
 
     /**
-     * @var \DateTime|null
+     * @var \DateTimeInterface|null
      */
     protected $_last_modified;
 
@@ -45,7 +45,7 @@ class Kohana_JSONRPC_Server_Response
         return $this;
     }
 
-    public function set_last_modified(DateTime $time)
+    public function set_last_modified(DateTimeInterface $time)
     {
         $this->_last_modified = $time;
         return $this;

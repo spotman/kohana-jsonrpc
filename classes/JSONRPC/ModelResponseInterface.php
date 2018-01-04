@@ -8,7 +8,7 @@ interface JSONRPC_ModelResponseInterface
     public function getJsonRpcResponseData();
 
     /**
-     * @return \DateTime|null
+     * @return \DateTimeInterface|null
      */
     public function getJsonRpcResponseLastModified();
 }

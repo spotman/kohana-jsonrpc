@@ -34,6 +34,7 @@ abstract class Kohana_JSONRPC_Server
     public function add_access_violation_exception($class_name)
     {
         $this->access_violation_exceptions[] = $class_name;
+
         return $this;
     }
 
@@ -73,13 +74,13 @@ abstract class Kohana_JSONRPC_Server
                     $batch_results[] = $item->body();
                 }
 
-                $response = '[' . implode(',', array_filter($batch_results)) . ']';
+                $response = '['.implode(',', array_filter($batch_results)).']';
             } else {
                 $data          = $this->process_request($request);
                 $last_modified = $this->update_last_modified($last_modified, $data->get_last_modified());
                 $response      = $data->body();
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->process_exception($e);
 
             if ($this->is_access_violation_exception($e)) {
@@ -106,7 +107,7 @@ abstract class Kohana_JSONRPC_Server
         $this->send_response($response, $last_modified);
     }
 
-    protected function is_access_violation_exception($e)
+    protected function is_access_violation_exception(\Throwable $e)
     {
         foreach ($this->access_violation_exceptions as $violation_exception) {
             if ($e instanceof $violation_exception) {
@@ -204,8 +205,10 @@ abstract class Kohana_JSONRPC_Server
         return $params;
     }
 
-    protected function update_last_modified(DateTime $currentTime = null, DateTime $updatedTime = null)
-    {
+    protected function update_last_modified(
+        DateTimeInterface $currentTime = null,
+        DateTimeInterface $updatedTime = null
+    ) {
         if (!$currentTime || ($updatedTime && $updatedTime > $currentTime)) {
             $currentTime = $updatedTime;
         }
@@ -216,12 +219,12 @@ abstract class Kohana_JSONRPC_Server
     /**
      * Process exception logging, notifications, etc
      *
-     * @param Exception $e
+     * @param \Throwable $e
      *
      * @return void
      * @throws Exception
      */
-    protected function process_exception(Exception $e)
+    protected function process_exception(\Throwable $e)
     {
 //        $in_production = in_array(Kohana::$environment, [Kohana::PRODUCTION, Kohana::STAGING], true);
 
@@ -233,11 +236,11 @@ abstract class Kohana_JSONRPC_Server
     }
 
     /**
-     * @param Exception $e
+     * @param \Throwable $e
      *
      * @return string
      */
-    protected function get_exception_message(Exception $e)
+    protected function get_exception_message(\Throwable $e)
     {
         // Hide original message on production environment
         return Kohana::$environment !== Kohana::PRODUCTION
@@ -245,7 +248,7 @@ abstract class Kohana_JSONRPC_Server
             : 'Internal error';
     }
 
-    protected function send_response($response, DateTime $last_modified = null)
+    protected function send_response($response, DateTimeInterface $last_modified = null)
     {
         if (!$last_modified) {
             $last_modified = new DateTime;
