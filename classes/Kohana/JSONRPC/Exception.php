@@ -18,7 +18,7 @@ class Kohana_JSONRPC_Exception extends Kohana_Exception {
 //        self::AUTHORIZATION_REQUIRED    => 'Authorization required',
     );
 
-    public function __construct($message = NULL, $variables = NULL, Exception $original_exception = NULL)
+    public function __construct($message = NULL, $variables = NULL, Throwable $original_exception = NULL)
     {
         $code = $this->code;
 
