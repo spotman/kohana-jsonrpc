@@ -192,7 +192,6 @@ abstract class Kohana_JSONRPC_Server
         $params = [];
 
         foreach ($reflection->getParameters() as $param) {
-            /* @var $param ReflectionParameter */
             if (isset($args[$param->getName()])) {
                 $params[] = $args[$param->getName()];
             } elseif ($param->isDefaultValueAvailable()) {
