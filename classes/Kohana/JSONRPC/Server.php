@@ -83,20 +83,7 @@ abstract class Kohana_JSONRPC_Server
         } catch (\Throwable $e) {
             $this->process_exception($e);
 
-            if ($this->is_access_violation_exception($e)) {
-                // Access violation, throw 403
-                $e = new HTTP_Exception_403('Access denied', [], $e);
-            }
-
-            $message = $this->get_exception_message($e);
-
-            if ($e instanceof HTTP_Exception) {
-                // Common HTTP exception (transfers HTTP code to response)
-                $e = new JSONRPC_Exception_HTTP($message, $e);
-            } elseif (!($e instanceof JSONRPC_Exception)) {
-                // Wrap unknown exception into InternalError
-                $e = new JSONRPC_Exception_InternalError($message, null, $e);
-            }
+            $e = $this->wrap_exception($e);
 
             $response = JSONRPC_Server_Response::factory()
                 ->failed($e)
@@ -142,33 +129,61 @@ abstract class Kohana_JSONRPC_Server
      */
     protected function process_request(JSONRPC_Server_Request $request)
     {
-        // Get class/method names
-        $class_name  = $request->class_name();
-        $method_name = $request->method_name();
-
-        // Factory proxy object
-        $proxy_object = $this->proxy_factory($class_name);
-
-        $params = $this->prepare_params($proxy_object, $method_name, $request->params() ?: []);
-
-        // Call proxy object method
-        $result        = call_user_func_array([$proxy_object, $method_name], $params);
-        $last_modified = null;
-
-        if (is_object($result) && $result instanceof JSONRPC_ModelResponseInterface) {
-            $last_modified = $result->getJsonRpcResponseLastModified();
-            $result        = $result->getJsonRpcResponseData();
-        }
-
-        if (!$last_modified) {
-            $last_modified = new DateTime;
-        }
-
         // Make response
-        return JSONRPC_Server_Response::factory()
-            ->id($request->id())
-            ->succeeded($result)
-            ->set_last_modified($last_modified);
+        $response = JSONRPC_Server_Response::factory()->id($request->id());
+
+        try {
+            // Get class/method names
+            $class_name  = $request->class_name();
+            $method_name = $request->method_name();
+
+            // Factory proxy object
+            $proxy_object = $this->proxy_factory($class_name);
+
+            $params = $this->prepare_params($proxy_object, $method_name, $request->params() ?: []);
+
+            // Call proxy object method
+            $result        = call_user_func_array([$proxy_object, $method_name], $params);
+            $last_modified = null;
+
+            if (is_object($result) && $result instanceof JSONRPC_ModelResponseInterface) {
+                $last_modified = $result->getJsonRpcResponseLastModified();
+                $result        = $result->getJsonRpcResponseData();
+            }
+
+            if (!$last_modified) {
+                $last_modified = new DateTime;
+            }
+
+            // Make response
+            $response->succeeded($result)->set_last_modified($last_modified);
+        } catch (Throwable $e) {
+            $this->process_exception($e);
+            $e = $this->wrap_exception($e);
+            $response->failed($e);
+        }
+
+        return $response;
+    }
+
+    protected function wrap_exception($e)
+    {
+        if ($this->is_access_violation_exception($e)) {
+            // Access violation, throw 403
+            $e = new HTTP_Exception_403('Access denied', [], $e);
+        }
+
+        $message = $this->get_exception_message($e);
+
+        if ($e instanceof HTTP_Exception) {
+            // Common HTTP exception (transfers HTTP code to response)
+            $e = new JSONRPC_Exception_HTTP($message, $e);
+        } elseif (!($e instanceof JSONRPC_Exception)) {
+            // Wrap unknown exception into InternalError
+            $e = new JSONRPC_Exception_InternalError($message, null, $e);
+        }
+
+        return $e;
     }
 
     protected function proxy_factory($class_name)
