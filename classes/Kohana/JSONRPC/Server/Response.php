@@ -77,6 +77,7 @@ class Kohana_JSONRPC_Server_Response
             $response->result = $this->_result;
         }
 
+        // Force empty arrays to be empty objects
         return json_encode($response);
     }
 }
